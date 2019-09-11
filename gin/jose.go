@@ -93,24 +93,48 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 		return func(c *gin.Context) {
 			token, err := validator.ValidateRequest(c.Request)
 			if err != nil {
-				c.AbortWithError(http.StatusUnauthorized, err)
+				if scfg.RedirectTo != "" {
+					logger.Error("JOSE: redirecting to", scfg.RedirectTo, "(validate request:", err, ")")
+					c.Redirect(http.StatusFound, scfg.RedirectTo)
+					c.Abort()
+				} else {
+					c.AbortWithError(http.StatusUnauthorized, err)
+				}
 				return
 			}
 
 			claims := map[string]interface{}{}
 			err = validator.Claims(c.Request, token, &claims)
 			if err != nil {
-				c.AbortWithError(http.StatusUnauthorized, err)
+				if scfg.RedirectTo != "" {
+					logger.Error("JOSE: redirecting to", scfg.RedirectTo, "(parsing claims:", err, ")")
+					c.Redirect(http.StatusFound, scfg.RedirectTo)
+					c.Abort()
+				} else {
+					c.AbortWithError(http.StatusUnauthorized, err)
+				}
 				return
 			}
 
 			if rejecter.Reject(claims) {
-				c.AbortWithStatus(http.StatusUnauthorized)
+				if scfg.RedirectTo != "" {
+					logger.Debug("JOSE: redirecting to", scfg.RedirectTo, "(reject)")
+					c.Redirect(http.StatusFound, scfg.RedirectTo)
+					c.Abort()
+				} else {
+					c.AbortWithStatus(http.StatusUnauthorized)
+				}
 				return
 			}
 
 			if !krakendjose.CanAccess(scfg.RolesKey, claims, scfg.Roles) {
-				c.AbortWithStatus(http.StatusForbidden)
+				if scfg.RedirectTo != "" {
+					logger.Debug("JOSE: redirecting to", scfg.RedirectTo, "(can access)")
+					c.Redirect(http.StatusFound, scfg.RedirectTo)
+					c.Abort()
+				} else {
+					c.AbortWithStatus(http.StatusForbidden)
+				}
 				return
 			}
 
@@ -131,3 +155,4 @@ func FromCookie(key string) func(r *http.Request) (*jwt.JSONWebToken, error) {
 		return jwt.ParseSigned(cookie.Value)
 	}
 }
+
