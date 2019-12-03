@@ -46,7 +46,7 @@ func (self *TokenSwitcher) Validate(claims map[string]interface{}, req *http.Req
     return nil, nil
   }
 
-  appID, err := self.extractInt64Claim(claims, self.cfg.WebAppIDKey)
+  appID, err := ExtractInt64Claim(claims, self.cfg.WebAppIDKey)
   if err != nil {
     return nil, err
   }
@@ -57,7 +57,7 @@ func (self *TokenSwitcher) Validate(claims map[string]interface{}, req *http.Req
   }
 
   // validation not ok, we need to switch token
-  userID, err := self.extractInt64Claim(claims, self.cfg.WebUserIDKey)
+  userID, err := ExtractInt64Claim(claims, self.cfg.WebUserIDKey)
   if err != nil {
     return nil, err
   }
@@ -73,7 +73,7 @@ func (self *TokenSwitcher) Validate(claims map[string]interface{}, req *http.Req
   return newTokens, nil
 }
 
-func (self *TokenSwitcher) extractInt64Claim(claims map[string]interface{}, key string) (int64, error) {
+func ExtractInt64Claim(claims map[string]interface{}, key string) (int64, error) {
   claim, ok := claims[key]
   if !ok {
     return 0, fmt.Errorf("tokenSwitcher.extractInt64Claim: key \"%s\" is not present in token", key)

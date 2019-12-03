@@ -157,8 +157,12 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 			// set cookie if new token was issued
 			if newTokens != nil {
 				// set domain as c.Request.URL.Hostname() ??
-				c.SetCookie(scfg.CookieKey, newTokens.Access, 3600, "/",
-				"", false, false)
+				maxAge, err := calcCookieMaxAge(claims)
+				if err != nil {
+					logger.Error("calcCookieMaxAge (", err, ")")
+					maxAge = 3600 * 24 * 7
+				}
+				c.SetCookie(scfg.CookieKey, newTokens.Access, int(maxAge), "/","", false, false)
 			}
 
 			handler(c)
@@ -198,4 +202,16 @@ func FromHeaderAndCookieRaw(key string) func(r *http.Request) (string, error) {
     }
     return cookie.Value, nil
   }
+}
+
+func calcCookieMaxAge(claims map[string]interface{}) (int64, error) {
+  iat, err := krakendjose.ExtractInt64Claim(claims, "iat")
+  if err != nil {
+    return 0, err
+  }
+  exp, err := krakendjose.ExtractInt64Claim(claims, "exp")
+  if err != nil {
+    return 0, err
+  }
+  return exp - iat, nil
 }
