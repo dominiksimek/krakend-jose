@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	auth0 "github.com/auth0-community/go-auth0"
 	krakendjose "github.com/devopsfaith/krakend-jose"
@@ -88,14 +89,16 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 			log.Fatalf("%s: %s", cfg.Endpoint, err.Error())
 		}
 
+		tokenSwitcher := krakendjose.NewTokenSwitcher(scfg, FromHeaderAndCookieRaw)
+
 		logger.Info("JOSE: validator enabled for the endpoint", cfg.Endpoint)
 
 		return func(c *gin.Context) {
 			token, err := validator.ValidateRequest(c.Request)
 			if err != nil {
-				if scfg.RedirectTo != "" {
-					logger.Error("JOSE: redirecting to", scfg.RedirectTo, "(validate request:", err, ")")
-					c.Redirect(http.StatusFound, scfg.RedirectTo)
+				if scfg.WebRedirectTo != "" {
+					logger.Error("JOSE: redirecting to", scfg.WebRedirectTo, "(validate request:", err, ")")
+					c.Redirect(http.StatusFound, scfg.WebRedirectTo)
 					c.Abort()
 				} else {
 					c.AbortWithError(http.StatusUnauthorized, err)
@@ -106,9 +109,9 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 			claims := map[string]interface{}{}
 			err = validator.Claims(c.Request, token, &claims)
 			if err != nil {
-				if scfg.RedirectTo != "" {
-					logger.Error("JOSE: redirecting to", scfg.RedirectTo, "(parsing claims:", err, ")")
-					c.Redirect(http.StatusFound, scfg.RedirectTo)
+				if scfg.WebRedirectTo != "" {
+					logger.Error("JOSE: redirecting to", scfg.WebRedirectTo, "(parsing claims:", err, ")")
+					c.Redirect(http.StatusFound, scfg.WebRedirectTo)
 					c.Abort()
 				} else {
 					c.AbortWithError(http.StatusUnauthorized, err)
@@ -117,9 +120,9 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 			}
 
 			if rejecter.Reject(claims) {
-				if scfg.RedirectTo != "" {
-					logger.Debug("JOSE: redirecting to", scfg.RedirectTo, "(reject)")
-					c.Redirect(http.StatusFound, scfg.RedirectTo)
+				if scfg.WebRedirectTo != "" {
+					logger.Debug("JOSE: redirecting to", scfg.WebRedirectTo, "(reject)")
+					c.Redirect(http.StatusFound, scfg.WebRedirectTo)
 					c.Abort()
 				} else {
 					c.AbortWithStatus(http.StatusUnauthorized)
@@ -128,14 +131,38 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 			}
 
 			if !krakendjose.CanAccess(scfg.RolesKey, claims, scfg.Roles) {
-				if scfg.RedirectTo != "" {
-					logger.Debug("JOSE: redirecting to", scfg.RedirectTo, "(can access)")
-					c.Redirect(http.StatusFound, scfg.RedirectTo)
+				if scfg.WebRedirectTo != "" {
+					logger.Debug("JOSE: redirecting to", scfg.WebRedirectTo, "(can access)")
+					c.Redirect(http.StatusFound, scfg.WebRedirectTo)
 					c.Abort()
 				} else {
 					c.AbortWithStatus(http.StatusForbidden)
 				}
 				return
+			}
+
+			// check check if user can access web app/endpoint (if configured)
+			newTokens, err := tokenSwitcher.Validate(claims, c.Request)
+			if err != nil {
+				if scfg.WebRedirectTo != "" {
+					logger.Debug("JOSE: redirecting to", scfg.WebRedirectTo, "(switch token)")
+					c.Redirect(http.StatusFound, scfg.WebRedirectTo)
+					c.Abort()
+				} else {
+					c.AbortWithError(http.StatusForbidden, err)
+				}
+				return
+			}
+
+			// set cookie if new token was issued
+			if newTokens != nil {
+				// set domain as c.Request.URL.Hostname() ??
+				maxAge, err := calcCookieMaxAge(claims)
+				if err != nil {
+					logger.Error("calcCookieMaxAge (", err, ")")
+					maxAge = 3600 * 24 * 7
+				}
+				c.SetCookie(scfg.CookieKey, newTokens.Access, int(maxAge), "/","", false, false)
 			}
 
 			handler(c)
@@ -156,3 +183,35 @@ func FromCookie(key string) func(r *http.Request) (*jwt.JSONWebToken, error) {
 	}
 }
 
+func FromHeaderAndCookieRaw(key string) func(r *http.Request) (string, error) {
+  if key == "" {
+    key = "access_token"
+  }
+  return func(r *http.Request) (string, error) {
+    raw := ""
+    if h := r.Header.Get("Authorization"); len(h) > 7 && strings.EqualFold(h[0:7], "BEARER ") {
+      raw = h[7:]
+    }
+    if raw != "" {
+      return raw, nil
+    }
+    //
+    cookie, err := r.Cookie(key)
+    if err != nil {
+      return "", auth0.ErrTokenNotFound
+    }
+    return cookie.Value, nil
+  }
+}
+
+func calcCookieMaxAge(claims map[string]interface{}) (int64, error) {
+  iat, err := krakendjose.ExtractInt64Claim(claims, "iat")
+  if err != nil {
+    return 0, err
+  }
+  exp, err := krakendjose.ExtractInt64Claim(claims, "exp")
+  if err != nil {
+    return 0, err
+  }
+  return exp - iat, nil
+}

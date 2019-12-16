@@ -30,7 +30,12 @@ type SignatureConfig struct {
 	DisableJWKSecurity bool     `json:"disable_jwk_security"`
 	Fingerprints       []string `json:"jwk_fingerprints,omitempty"`
 	LocalCA            string   `json:"jwk_local_ca,omitempty"`
-	RedirectTo         string   `json:"redirect_to,omitempty"`
+	//
+	WebAppIDKey        string   `json:"web_app_id_key,omitempty"`
+	WebExpAppID        int64    `json:"web_expected_app_id,omitempty"`
+	WebUserIDKey       string   `json:"web_user_id_key,omitempty"`
+	WebNewTokenUrl     string   `json:"web_new_token_url,omitempty"`
+	WebRedirectTo      string   `json:"web_redirect_to,omitempty"`
 }
 
 type SignerConfig struct {
