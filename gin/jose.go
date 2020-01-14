@@ -141,7 +141,7 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 				return
 			}
 
-			// check check if user can access web app/endpoint (if configured)
+			// check if user can access web app/endpoint (if configured)
 			newTokens, err := tokenSwitcher.Validate(claims, c.Request)
 			if err != nil {
 				if scfg.WebRedirectTo != "" {
@@ -156,13 +156,8 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 
 			// set cookie if new token was issued
 			if newTokens != nil {
-				// set domain as c.Request.URL.Hostname() ??
-				maxAge, err := calcCookieMaxAge(claims)
-				if err != nil {
-					logger.Error("calcCookieMaxAge (", err, ")")
-					maxAge = 3600 * 24 * 7
-				}
-				c.SetCookie(scfg.CookieKey, newTokens.Access, int(maxAge), "/","", false, false)
+				maxAge := 60 * 60 * 24 * 7
+				c.SetCookie(scfg.CookieKey, newTokens.Access, maxAge, "/","", false, false)
 			}
 
 			handler(c)
