@@ -89,6 +89,14 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 			log.Fatalf("%s: %s", cfg.Endpoint, err.Error())
 		}
 
+		var aclCheck func(string, map[string]interface{}, []string) bool
+
+		if strings.Contains(scfg.RolesKey, ".") {
+			aclCheck = krakendjose.CanAccessNested
+		} else {
+			aclCheck = krakendjose.CanAccess
+		}
+
 		tokenSwitcher := krakendjose.NewTokenSwitcher(scfg, FromHeaderAndCookieRaw)
 
 		logger.Info("JOSE: validator enabled for the endpoint", cfg.Endpoint)
@@ -130,9 +138,9 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 				return
 			}
 
-			if !krakendjose.CanAccess(scfg.RolesKey, claims, scfg.Roles) {
+			if !aclCheck(scfg.RolesKey, claims, scfg.Roles) {
 				if scfg.WebRedirectTo != "" {
-					logger.Debug("JOSE: redirecting to", scfg.WebRedirectTo, "(can access)")
+					logger.Debug("JOSE: redirecting to", scfg.WebRedirectTo, "(acl check)")
 					c.Redirect(http.StatusFound, scfg.WebRedirectTo)
 					c.Abort()
 				} else {
