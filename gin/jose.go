@@ -164,8 +164,8 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 
 			// set cookie if new token was issued
 			if newTokens != nil {
-				maxAge := 60 * 60 * 24 * 7
-				c.SetCookie(scfg.CookieKey, newTokens.Access, maxAge, "/","", !scfg.WebSecCookieDisable, false)
+				c.SetCookie(scfg.CookieKey, newTokens.Access, scfg.WebMaxAgeCookie, "/","", !scfg.WebSecCookieDisable,
+				  !scfg.WebHttpOnlyCookieDisable)
 			}
 
 			handler(c)

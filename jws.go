@@ -18,26 +18,28 @@ const (
 )
 
 type SignatureConfig struct {
-	Alg                 string   `json:"alg"`
-	URI                 string   `json:"jwk-url"`
-	CacheEnabled        bool     `json:"cache,omitempty"`
-	CacheDuration       uint32   `json:"cache_duration,omitempty"`
-	Issuer              string   `json:"issuer,omitempty"`
-	Audience            []string `json:"audience,omitempty"`
-	Roles               []string `json:"roles,omitempty"`
-	RolesKey            string   `json:"roles_key,omitempty"`
-	CookieKey           string   `json:"cookie_key,omitempty"`
-	CipherSuites        []uint16 `json:"cipher_suites,omitempty"`
-	DisableJWKSecurity  bool     `json:"disable_jwk_security"`
-	Fingerprints        []string `json:"jwk_fingerprints,omitempty"`
-	LocalCA             string   `json:"jwk_local_ca,omitempty"`
+	Alg                      string   `json:"alg"`
+	URI                      string   `json:"jwk-url"`
+	CacheEnabled             bool     `json:"cache,omitempty"`
+	CacheDuration            uint32   `json:"cache_duration,omitempty"`
+	Issuer                   string   `json:"issuer,omitempty"`
+	Audience                 []string `json:"audience,omitempty"`
+	Roles                    []string `json:"roles,omitempty"`
+	RolesKey                 string   `json:"roles_key,omitempty"`
+	CookieKey                string   `json:"cookie_key,omitempty"`
+	CipherSuites             []uint16 `json:"cipher_suites,omitempty"`
+	DisableJWKSecurity       bool     `json:"disable_jwk_security"`
+	Fingerprints             []string `json:"jwk_fingerprints,omitempty"`
+	LocalCA                  string   `json:"jwk_local_ca,omitempty"`
 	//
-	WebAppIDKey         string   `json:"web_app_id_key,omitempty"`
-	WebExpAppID         int64    `json:"web_expected_app_id,omitempty"`
-	WebUserIDKey        string   `json:"web_user_id_key,omitempty"`
-	WebNewTokenUrl      string   `json:"web_new_token_url,omitempty"`
-	WebRedirectTo       string   `json:"web_redirect_to,omitempty"`
-	WebSecCookieDisable bool     `json:"web_secure_cookie_disable,omitempty"`
+	WebAppIDKey              string   `json:"web_app_id_key,omitempty"`
+	WebExpAppID              int64    `json:"web_expected_app_id,omitempty"`
+	WebUserIDKey             string   `json:"web_user_id_key,omitempty"`
+	WebNewTokenUrl           string   `json:"web_new_token_url,omitempty"`
+	WebRedirectTo            string   `json:"web_redirect_to,omitempty"`
+	WebMaxAgeCookie          int      `json:"web_max_age_cookie,omitempty"`
+	WebSecCookieDisable      bool     `json:"web_secure_cookie_disable,omitempty"`
+	WebHttpOnlyCookieDisable bool     `json:"web_http_only_cookie_disable,omitempty"`
 }
 
 type SignerConfig struct {
