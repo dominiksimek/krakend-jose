@@ -16,7 +16,7 @@ var ErrNotAuth = fmt.Errorf("not authorized")
 type tokenBackendReq struct {
   AccountID int64  `json:"accountID"`
   AppID     int64  `json:"applicationID"`
-  Token     string `json:"token"`
+  //Token     string `json:"token"`
 }
 
 type SignedTokensWrapper struct {
@@ -87,7 +87,7 @@ func ExtractInt64Claim(claims map[string]interface{}, key string) (int64, error)
 
 // requestNewToken creates request for a new token and sends it to the configured backend.
 func (self *TokenSwitcher) requestNewToken(userID int64, token string) (*SignedTokensWrapper, error) {
-  tokenReq := tokenBackendReq{AccountID: userID, AppID: self.cfg.WebExpAppID, Token: token}
+  tokenReq := tokenBackendReq{AccountID: userID, AppID: self.cfg.WebExpAppID}
   tokeReqBytes, err := json.Marshal(tokenReq)
   if err != nil {
     return nil, err
@@ -97,6 +97,7 @@ func (self *TokenSwitcher) requestNewToken(userID int64, token string) (*SignedT
     return nil, err
   }
   req.Header.Set("Content-Type", "application/json")
+  req.Header.Set("Authorization", "Bearer " + token)
 
   res, err := self.httpExec.Do(req)
   if err != nil {
