@@ -37,6 +37,7 @@ type SignatureConfig struct {
 	WebUserIDKey             string   `json:"web_user_id_key,omitempty"`
 	WebNewTokenUrl           string   `json:"web_new_token_url,omitempty"`
 	WebRedirectTo            string   `json:"web_redirect_to,omitempty"`
+	WebReturnUrlBase         string   `json:"web_return_url_base,omitempty"`
 	WebMaxAgeCookie          int      `json:"web_max_age_cookie,omitempty"`
 	WebSecCookieDisable      bool     `json:"web_secure_cookie_disable,omitempty"`
 	WebHttpOnlyCookieDisable bool     `json:"web_http_only_cookie_disable,omitempty"`

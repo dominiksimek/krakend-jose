@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 
 	auth0 "github.com/auth0-community/go-auth0"
@@ -97,16 +98,48 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 			aclCheck = krakendjose.CanAccess
 		}
 
+		// token switcher configuration
 		tokenSwitcher := krakendjose.NewTokenSwitcher(scfg, FromHeaderAndCookieRaw)
+		var redirectUrl *url.URL
+		var returnUrlBase *url.URL
+		if scfg.WebRedirectTo != "" {
+			redirectUrl, err = url.Parse(scfg.WebRedirectTo)
+			if err != nil {
+				log.Fatalf("JOSE: parse redirect url (%s)", err)
+			}
+			returnUrlBase, err = url.Parse(scfg.WebReturnUrlBase)
+			if err != nil {
+				log.Fatalf("JOSE: parse base return url (%s)", err)
+			}
+		}
 
 		logger.Info("JOSE: validator enabled for the endpoint", cfg.Endpoint)
 
 		return func(c *gin.Context) {
+			// build redirect url if it's configured; redirect url composed from scfg.WebRedirectTo + return_url query param:
+			// returnURL := scfg.WebReturnUrlBase + "?" + c.Request.URL.Query() // WebReturnUrlBase + all query params
+			//   from actual client request; it's because whole request URI with scheme and host is not available here
+			// scfg.WebRedirectTo += "?" + "return_url=" + returnURL
+			if redirectUrl != nil {
+				returnUrlFull := *returnUrlBase
+				returnUrlFullQuery := returnUrlFull.Query()
+				for k, v := range c.Request.URL.Query() {
+					if len(v) > 0 {
+						returnUrlFullQuery.Add(k, v[0])
+					}
+				}
+				returnUrlFull.RawQuery = returnUrlFullQuery.Encode()
+
+				q := redirectUrl.Query()
+				q.Set("return_url", returnUrlFull.String())
+				redirectUrl.RawQuery = q.Encode()
+			}
+
 			token, err := validator.ValidateRequest(c.Request)
 			if err != nil {
-				if scfg.WebRedirectTo != "" {
-					logger.Error("JOSE: redirecting to", scfg.WebRedirectTo, "(validate request:", err, ")")
-					c.Redirect(http.StatusFound, scfg.WebRedirectTo)
+				if redirectUrl != nil {
+					logger.Error("JOSE: redirecting to", redirectUrl.String(), "(validate request:", err, ")")
+					c.Redirect(http.StatusFound, redirectUrl.String())
 					c.Abort()
 				} else {
 					c.AbortWithError(http.StatusUnauthorized, err)
@@ -117,9 +150,9 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 			claims := map[string]interface{}{}
 			err = validator.Claims(c.Request, token, &claims)
 			if err != nil {
-				if scfg.WebRedirectTo != "" {
-					logger.Error("JOSE: redirecting to", scfg.WebRedirectTo, "(parsing claims:", err, ")")
-					c.Redirect(http.StatusFound, scfg.WebRedirectTo)
+				if redirectUrl != nil {
+					logger.Error("JOSE: redirecting to", redirectUrl.String(), "(parsing claims:", err, ")")
+					c.Redirect(http.StatusFound, redirectUrl.String())
 					c.Abort()
 				} else {
 					c.AbortWithError(http.StatusUnauthorized, err)
@@ -128,9 +161,9 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 			}
 
 			if rejecter.Reject(claims) {
-				if scfg.WebRedirectTo != "" {
-					logger.Debug("JOSE: redirecting to", scfg.WebRedirectTo, "(reject)")
-					c.Redirect(http.StatusFound, scfg.WebRedirectTo)
+				if redirectUrl != nil {
+					logger.Debug("JOSE: redirecting to", redirectUrl.String(), "(reject)")
+					c.Redirect(http.StatusFound, redirectUrl.String())
 					c.Abort()
 				} else {
 					c.AbortWithStatus(http.StatusUnauthorized)
@@ -139,9 +172,9 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 			}
 
 			if !aclCheck(scfg.RolesKey, claims, scfg.Roles) {
-				if scfg.WebRedirectTo != "" {
-					logger.Debug("JOSE: redirecting to", scfg.WebRedirectTo, "(acl check)")
-					c.Redirect(http.StatusFound, scfg.WebRedirectTo)
+				if redirectUrl != nil {
+					logger.Debug("JOSE: redirecting to", redirectUrl.String(), "(acl check)")
+					c.Redirect(http.StatusFound, redirectUrl.String())
 					c.Abort()
 				} else {
 					c.AbortWithStatus(http.StatusForbidden)
@@ -152,9 +185,9 @@ func TokenSignatureValidator(hf ginkrakend.HandlerFactory, logger logging.Logger
 			// check if user can access web app/endpoint (if configured)
 			newTokens, err := tokenSwitcher.Validate(claims, c.Request)
 			if err != nil {
-				if scfg.WebRedirectTo != "" {
-					logger.Debug("JOSE: redirecting to", scfg.WebRedirectTo, "(switch token)")
-					c.Redirect(http.StatusFound, scfg.WebRedirectTo)
+				if redirectUrl != nil {
+					logger.Debug("JOSE: redirecting to", redirectUrl.String(), "(switch token)")
+					c.Redirect(http.StatusFound, redirectUrl.String())
 					c.Abort()
 				} else {
 					c.AbortWithError(http.StatusForbidden, err)
